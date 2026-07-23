@@ -28,7 +28,7 @@ See `docs/` for detailed decisions and rationale.
     │   └── decisions/              Architecture Decision Records (ADRs)
     ├── shared/
     │   └── Sources/RecompCore/     Cross-platform data models, migrations, logic
-    ├── ios/                        iOS app target (added in commit #2)
+    ├── ios/                        iOS app target
     └── macos/                      macOS app target (added later)
 
 ## Project setup
@@ -36,7 +36,7 @@ See `docs/` for detailed decisions and rationale.
 - **Bundle identifier:** `com.seanflanigan.recomptracker`
 - **Minimum iOS version:** 17.0
 - **Minimum macOS version:** 14.0
-- **Xcode:** 16.0+
+- **Xcode:** 26.6+
 
 ## Getting started
 
@@ -45,13 +45,13 @@ Clone:
     git clone git@github.com:SeanFlanigan88/Recomp-Tracker.git recomp-tracker
     cd recomp-tracker
 
-The iOS project doesn't exist yet — this commit is the schema and architectural foundation. Future commits will add the Xcode project and app code.
+Open `ios/RecompTracker/RecompTracker.xcodeproj` in Xcode and build for an iOS simulator. The shared data layer lives in `shared/` as a local Swift package (`RecompCore`) that the iOS target depends on. Package tests run via `swift test` from `shared/`.
 
 ## Roadmap
 
 - [x] Schema, ADRs, project scaffold
 - [ ] Xcode project + SwiftUI tab shell
-- [ ] GRDB integration + initial migration
+- [x] GRDB integration + initial migration
 - [ ] JSON import from legacy tracker (`cycle2-tracker.html` export format)
 - [ ] Manual daily log + workout logging
 - [ ] HealthKit read integration
