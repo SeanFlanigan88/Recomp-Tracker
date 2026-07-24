@@ -34,23 +34,20 @@ struct ContentView: View {
                 .tabItem { Label("Check-ins", systemImage: "checkmark.circle") }
                 .tag(Tab.checkIns)
         }
+        // Force dark by default per Sean's preference. Not tied to the
+        // system appearance — if the phone is on light mode, this app is
+        // still dark. Revisit if we ever add a user-facing appearance
+        // toggle in settings.
+        .preferredColorScheme(.dark)
     }
 }
 
 // MARK: - Placeholder tabs
 //
-// LogTab is now a real view (see LogTab.swift). The rest stay as placeholders
-// until their respective commits. Each is wrapped in NavigationStack so title
-// rendering matches what the real views will look like.
-
-private struct WorkoutsTab: View {
-    var body: some View {
-        NavigationStack {
-            Text("Workouts and sets live here.")
-                .navigationTitle("Workouts")
-        }
-    }
-}
+// LogTab and WorkoutsTab are now real views in their own files. The rest
+// stay as placeholders until their respective commits. Each is wrapped in
+// NavigationStack so title rendering matches what the real views will look
+// like.
 
 private struct MetricsTab: View {
     var body: some View {

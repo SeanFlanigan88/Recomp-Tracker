@@ -8,6 +8,55 @@ items to `docs/decisions/` if they grow into a real ADR.
 
 ---
 
+## Workouts tab
+
+### Structural superset pairing (Friday Upper)
+
+Currently Friday's supersets are represented by name prefix (`"1a · Incline
+barbell press"`, `"1b · Chest-supported DB row"`) — same as the HTML tracker.
+This lets us ship without modeling pair relationships in `ProgramExercise`.
+
+To revisit after Aug 3 with real usage data: is the prefix enough? Or is the
+right shape a paired render (1a/1b side-by-side or nested) with a shared rest
+timer and a "round" counter that increments once per pair?
+
+If we go structural: add `pairId: String?` to `ProgramExercise`, group by
+`pairId` at render time, and let unpaired lifts render normally.
+
+### Warmup toggle per set
+
+Right now every logged set is a work set (`is_warmup = false`). PR detection
+already filters warmups out, so the plumbing is ready. UI: small "W" toggle
+on each set row, tap to mark as warmup. Warmup sets should visually recede
+(dim text) so the work sets stand out. Estimate: half a day of work.
+
+### RIR entry per set
+
+Schema has `rir` column (reps in reserve, 0–5 typical). Not exposed in the
+UI right now. Add a third numeric column to the sets grid — "RIR" — or a
+tap-to-reveal secondary row per set. Sean's brief mentioned RPE, which is
+convertible (RPE = 10 − RIR); confirm whether he prefers RIR or RPE display
+before adding.
+
+### Day picker
+
+Workouts tab shows today only. Users will want to backfill yesterday's
+missed session, or preview tomorrow's plan. Add a week strip at the top:
+`S M T W T F S`, today highlighted, tap to switch. When viewing a non-today
+day, either allow editing (retroactive log) or preview-only (read-only plan
+render). Recommend allow-editing for backfill but require an explicit
+confirmation for future days.
+
+### Full aesthetic pass (dark theme + HTML look)
+
+The dark scheme is set via `.preferredColorScheme(.dark)` — standard iOS dark
+appearance. The HTML tracker had a distinctive look: cyan/orange/green
+accents, `JetBrains Mono` and `Rajdhani` fonts, subtle grid overlay, custom
+card treatments. Porting that is a real design effort — a dedicated commit
+after the core screens all work. Ship function first, aesthetic second.
+
+---
+
 ## Log tab
 
 ### Daily Stoic quote above Notes
