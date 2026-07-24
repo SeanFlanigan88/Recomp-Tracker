@@ -2,40 +2,46 @@ import SwiftUI
 import RecompCore
 
 struct ContentView: View {
+
+    /// Tab selection is state so the Log tab's "Session" row can programmatically
+    /// jump to Workouts. Keep this minimal — no routing framework, just a tab
+    /// enum and a couple of tags.
+    @State private var selectedTab: Tab = .log
+
+    enum Tab: Hashable {
+        case log, workouts, metrics, photos, checkIns
+    }
+
     var body: some View {
-        TabView {
-            LogTab()
+        TabView(selection: $selectedTab) {
+            LogTab(onOpenWorkouts: { selectedTab = .workouts })
                 .tabItem { Label("Log", systemImage: "square.and.pencil") }
+                .tag(Tab.log)
 
             WorkoutsTab()
                 .tabItem { Label("Workouts", systemImage: "dumbbell") }
+                .tag(Tab.workouts)
 
             MetricsTab()
                 .tabItem { Label("Metrics", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(Tab.metrics)
 
             PhotosTab()
                 .tabItem { Label("Photos", systemImage: "photo.on.rectangle") }
+                .tag(Tab.photos)
 
             CheckInsTab()
                 .tabItem { Label("Check-ins", systemImage: "checkmark.circle") }
+                .tag(Tab.checkIns)
         }
     }
 }
 
 // MARK: - Placeholder tabs
 //
-// Each tab is a NavigationStack + a Text view for now. The NavigationStack
-// wrappers are here so titles render correctly and so we're not restructuring
-// the view hierarchy when we add real content in commit #4.
-
-private struct LogTab: View {
-    var body: some View {
-        NavigationStack {
-            Text("Daily log lives here.")
-                .navigationTitle("Log")
-        }
-    }
-}
+// LogTab is now a real view (see LogTab.swift). The rest stay as placeholders
+// until their respective commits. Each is wrapped in NavigationStack so title
+// rendering matches what the real views will look like.
 
 private struct WorkoutsTab: View {
     var body: some View {
@@ -75,5 +81,5 @@ private struct CheckInsTab: View {
 
 #Preview {
     ContentView()
-        .environment(\.appDatabase, try! AppDatabase.inMemory())
+        .environment(\.appDatabase, try? AppDatabase.inMemory())
 }

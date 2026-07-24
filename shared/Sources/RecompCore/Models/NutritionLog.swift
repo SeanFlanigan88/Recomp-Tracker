@@ -13,6 +13,7 @@ public struct NutritionLog: Codable, Equatable, Hashable, Identifiable, Sendable
     public var fatG: Int?
     public var targetKcal: Int?
     public var targetProteinG: Int?
+    public var waterOz: Int?
     public var notes: String?
 
     public init(
@@ -24,6 +25,7 @@ public struct NutritionLog: Codable, Equatable, Hashable, Identifiable, Sendable
         fatG: Int? = nil,
         targetKcal: Int? = nil,
         targetProteinG: Int? = nil,
+        waterOz: Int? = nil,
         notes: String? = nil
     ) {
         self.id = id
@@ -34,6 +36,7 @@ public struct NutritionLog: Codable, Equatable, Hashable, Identifiable, Sendable
         self.fatG = fatG
         self.targetKcal = targetKcal
         self.targetProteinG = targetProteinG
+        self.waterOz = waterOz
         self.notes = notes
     }
 
@@ -46,6 +49,7 @@ public struct NutritionLog: Codable, Equatable, Hashable, Identifiable, Sendable
         case fatG = "fat_g"
         case targetKcal = "target_kcal"
         case targetProteinG = "target_protein_g"
+        case waterOz = "water_oz"
         case notes
     }
 }

@@ -24,6 +24,7 @@ public enum AppMigrator {
         #endif
 
         M001_InitialSchema.register(in: &migrator)
+        M002_AddWaterOz.register(in: &migrator)
 
         return migrator
     }
