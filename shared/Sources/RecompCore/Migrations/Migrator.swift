@@ -25,6 +25,7 @@ public enum AppMigrator {
 
         M001_InitialSchema.register(in: &migrator)
         M002_AddWaterOz.register(in: &migrator)
+        M003_UniqueHealthKitUuid.register(in: &migrator)
 
         return migrator
     }

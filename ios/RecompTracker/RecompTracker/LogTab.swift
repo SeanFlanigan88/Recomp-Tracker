@@ -23,6 +23,19 @@ struct LogTab: View {
 
     @Environment(\.appDatabase) private var appDatabase: AppDatabase?
 
+    /// Injected via init. Defaults to the real `HealthKitClient` in the app;
+    /// tests and previews can pass a fake. Held as `let` so it isn't
+    /// re-instantiated on view updates.
+    private let healthKit: HealthKitReading
+
+    init(
+        onOpenWorkouts: @escaping () -> Void,
+        healthKit: HealthKitReading = HealthKitClient()
+    ) {
+        self.onOpenWorkouts = onOpenWorkouts
+        self.healthKit = healthKit
+    }
+
     /// Called when the user taps the Session row. The Log tab doesn't know
     /// how it's hosted; ContentView routes this to the Workouts tab.
     let onOpenWorkouts: () -> Void
@@ -50,6 +63,11 @@ struct LogTab: View {
     /// the view remounts.
     @State private var didInitialLoad = false
 
+    /// Non-nil = HealthKit handshake failed (authorization or read query).
+    /// Rendered as a small dismissible banner near the top of the form.
+    /// Manual entry keeps working regardless — this is informational.
+    @State private var healthKitStatusMessage: String?
+
     @FocusState private var focusedField: Field?
     private enum Field: Hashable {
         case weight
@@ -70,6 +88,18 @@ struct LogTab: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let message = healthKitStatusMessage {
+                    Section {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundStyle(.secondary)
+                            Text(message)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section {
                     weightRow
                     sleepRow
@@ -94,6 +124,7 @@ struct LogTab: View {
             .task {
                 guard !didInitialLoad else { return }
                 await loadEverything()
+                await bootstrapHealthKit()
                 didInitialLoad = true
             }
             .onAppear {
@@ -248,7 +279,7 @@ struct LogTab: View {
         do {
             async let dl = db.dailyLog(on: date)
             async let nl = db.nutritionLog(on: date)
-            async let bm = db.todaysManualBodyMetric(on: date)
+            async let weight = db.todaysDisplayWeight(on: date)
             async let sess = db.todaysSession(on: date)
             async let anchors = db.anchorTopSets(on: date)
 
@@ -260,9 +291,7 @@ struct LogTab: View {
                 kcal = nl.kcal
                 waterOz = nl.waterOz ?? 0
             }
-            if let bm = try await bm {
-                weightLb = bm.weightLb
-            }
+            weightLb = try await weight
             session = try await sess
             anchorSets = try await anchors
         } catch {
@@ -281,6 +310,42 @@ struct LogTab: View {
             anchorSets = try await anchors
         } catch {
             print("LogTab workout refresh failed: \(error)")
+        }
+    }
+
+    /// Ask HealthKit for read authorization, pull the last 30 days of samples
+    /// for our scope-b types, import them (idempotent via UUID dedup), and
+    /// refresh the weight display.
+    ///
+    /// Silent no-op on platforms where HealthKit isn't available (e.g.,
+    /// simulator on macOS build). Handshake failures — authorization throws,
+    /// or a sample query throws — surface via `healthKitStatusMessage` as a
+    /// small banner. Empty read results are not an error: HK deliberately
+    /// hides read-denials, so "no data" is indistinguishable from "denied"
+    /// and both are handled the same way (display stays as manual entry).
+    private func bootstrapHealthKit() async {
+        guard let db = appDatabase else { return }
+        guard healthKit.isHealthDataAvailable else { return }
+
+        do {
+            try await healthKit.requestReadAuthorization()
+
+            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())
+                ?? Date.distantPast
+            var collected: [QuantitySampleImport] = []
+            for kind in QuantitySampleImport.Kind.allCases {
+                let samples = try await healthKit.quantitySamples(kind: kind, since: thirtyDaysAgo)
+                collected.append(contentsOf: samples)
+            }
+            _ = try await db.importHealthKitSamples(collected)
+
+            // Refresh only the weight — other metrics live on the Metrics tab
+            // and load themselves when that tab opens.
+            weightLb = try await db.todaysDisplayWeight(on: date)
+            healthKitStatusMessage = nil
+        } catch {
+            healthKitStatusMessage = "Health couldn't sync. Manual entry still works — try again next time you open the app."
+            print("HK bootstrap failed: \(error)")
         }
     }
 
