@@ -70,6 +70,12 @@ struct WorkoutsTab: View {
                 content
             }
             .navigationTitle(navTitle)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }
+                }
+            }
             .task {
                 guard !didInitialLoad else { return }
                 initializeSetStateForProgram()

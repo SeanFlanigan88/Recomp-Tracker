@@ -121,6 +121,12 @@ struct LogTab: View {
                 }
             }
             .navigationTitle(dateTitle)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }
+                }
+            }
             .task {
                 guard !didInitialLoad else { return }
                 await loadEverything()
