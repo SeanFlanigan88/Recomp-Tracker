@@ -55,6 +55,7 @@ private struct MetricsTab: View {
             Text("Body composition, sleep, HRV live here.")
                 .navigationTitle("Metrics")
         }
+        .keyboardDoneToolbar()
     }
 }
 
@@ -64,6 +65,7 @@ private struct PhotosTab: View {
             Text("Progress photos live here.")
                 .navigationTitle("Photos")
         }
+        .keyboardDoneToolbar()
     }
 }
 
@@ -73,6 +75,7 @@ private struct CheckInsTab: View {
             Text("Weekly, biweekly, monthly check-ins live here.")
                 .navigationTitle("Check-ins")
         }
+        .keyboardDoneToolbar()
     }
 }
 
