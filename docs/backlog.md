@@ -121,3 +121,47 @@ neutral anchor, then the tap increments/decrements from there. This means
 "first tap up" lands on 6, not 5 — mildly awkward. Revisit if it grates.
 Alternative: replace the always-visible stepper with a "Set sleep" button
 that reveals the stepper on first tap.
+
+---
+
+## Progress photos
+
+### Image retention policy (spike)
+
+Photos are stored full-resolution byte-for-byte from the library (see the
+progress-photos commit). At ~8 shots/week × ~3 MB/shot that's ~1.25 GB/year
+on device — cheap now, not free forever.
+
+The purpose of the images is for the fitness agent to see what Sean sees and
+catch what he misses. Once a photo has been analyzed and the observations
+recorded (either as `check_ins.coach_notes` or elsewhere), the *image* is
+largely spent — the *derived signals* are what matter. The exception is
+long-arc visual progression ("here's month 1 vs month 12").
+
+Open questions to resolve:
+
+1. **What age triggers cleanup?** Sean floated 8 months, may be less. Depends
+   on how often the fitness agent reaches back for old images in practice.
+   Track this in real usage before picking a number.
+2. **Full purge or downsample-and-keep?** Purging the full-res original but
+   keeping a small (e.g. 512px) thumbnail preserves progression collages at
+   ~5% of the storage cost. Full purge is simpler; downsample is more honest
+   to "I still want to see progress over time."
+3. **Landmark preservation.** Do we keep one shot per month regardless of
+   age, and only purge the intra-month duplicates? Cheap way to preserve a
+   monthly timeline forever.
+4. **Manual vs scheduled.** User-triggered "Clean up photos older than X"
+   button (safer, explicit) vs a scheduled background pass (frictionless,
+   scarier). MVP is almost certainly manual.
+5. **Soft delete vs hard delete.** If soft, a `deleted_at` column on
+   `progress_photos` + a "Trash" view + a real delete after N days. If hard,
+   the row and file are gone on confirm. Soft is friendlier to a
+   "wait I didn't mean that" recovery.
+6. **Sync interaction.** If cross-device sync ever ships, retention policy
+   becomes per-device (delete locally but keep in CloudKit/blob store) or
+   global (delete everywhere). This spike should not commit either way but
+   should note the coupling.
+
+Resolves when: (a) there's 6+ months of real photo data to reason from, and
+(b) the fitness-agent workflow is concrete enough to know how often old
+images are actually referenced. Not urgent — reopen ~Q2 2027.
