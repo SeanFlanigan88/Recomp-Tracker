@@ -33,7 +33,10 @@ public struct ProgressPhoto: Codable, Equatable, Hashable, Identifiable, Sendabl
     public var timestamp: Date
     public var angle: Angle
     public var pose: Pose
-    /// Local file path in dev; CKAsset reference once CloudKit sync lands (commit #7).
+    /// Path to the image on local disk, stored *relative* to the app's
+    /// Documents directory (e.g. `progress_photos/{uuid}.heic`). Relative
+    /// storage is required because iOS may relocate the app container across
+    /// installs — absolute paths silently break on restore.
     public var photoPath: String
     public var weightLbAtCapture: Double?
     public var bfPctAtCapture: Double?
