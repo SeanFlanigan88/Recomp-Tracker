@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Recomp Tracker imports your body composition, workouts, and sleep data to give you a complete picture of your training.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Recomp Tracker doesn't currently write to Health, but this permission is included so future workout logging can be shared with the Health app.</string>
-</dict>
+<dict/>
 </plist>
