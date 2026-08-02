@@ -44,26 +44,16 @@ struct ContentView: View {
 
 // MARK: - Placeholder tabs
 //
-// LogTab and WorkoutsTab are now real views in their own files. The rest
-// stay as placeholders until their respective commits. Each is wrapped in
-// NavigationStack so title rendering matches what the real views will look
-// like.
+// LogTab, WorkoutsTab, and PhotosTab are now real views in their own files.
+// The rest stay as placeholders until their respective commits. Each is
+// wrapped in NavigationStack so title rendering matches what the real views
+// will look like.
 
 private struct MetricsTab: View {
     var body: some View {
         NavigationStack {
             Text("Body composition, sleep, HRV live here.")
                 .navigationTitle("Metrics")
-        }
-        .keyboardDoneToolbar()
-    }
-}
-
-private struct PhotosTab: View {
-    var body: some View {
-        NavigationStack {
-            Text("Progress photos live here.")
-                .navigationTitle("Photos")
         }
         .keyboardDoneToolbar()
     }
