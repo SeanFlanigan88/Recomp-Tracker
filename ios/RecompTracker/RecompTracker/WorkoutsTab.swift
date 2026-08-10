@@ -19,6 +19,7 @@ struct WorkoutsTab: View {
     // MARK: - Editable state
 
     @State private var date = Date()
+    @State private var showDatePicker = false
     @State private var workoutId: Int64?
     @State private var setState: [String: [SetInputRow]] = [:]
     @State private var cardioDurationMin: Int?
@@ -67,9 +68,28 @@ struct WorkoutsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                if !isToday {
+                    offTodayBanner
+                }
                 content
             }
             .navigationTitle(navTitle)
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if !isToday {
+                        Button("Today") { date = Date() }
+                    }
+                    Button {
+                        showDatePicker = true
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                    .accessibilityLabel("Pick a date")
+                }
+            }
+            .sheet(isPresented: $showDatePicker) {
+                datePickerSheet
+            }
             .keyboardDoneToolbar()
             .task {
                 guard !didInitialLoad else { return }
@@ -77,10 +97,101 @@ struct WorkoutsTab: View {
                 await loadFromDatabase()
                 didInitialLoad = true
             }
+            .onChange(of: date) { _, _ in
+                Task { await reloadForCurrentDate() }
+            }
             .onChange(of: focusedField) { oldValue, _ in
                 Task { await saveOnFocusLoss(from: oldValue) }
             }
         }
+    }
+
+    // MARK: - Date-picker views
+
+    private var isToday: Bool {
+        Calendar.current.isDateInToday(date)
+    }
+
+    /// Amber banner shown when the tab is viewing a past date. Compact so it
+    /// doesn't dominate the layout, but present enough that you can't
+    /// forget which day you're logging into.
+    private var offTodayBanner: some View {
+        Section {
+            HStack(spacing: 8) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.subheadline.weight(.semibold))
+                    Text(relativeDayString(for: date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        } footer: {
+            Text("Backfilling a past date. New sets recompute PR flags across all logged sessions.")
+        }
+    }
+
+    /// Modal sheet housing a graphical date picker constrained to the
+    /// current cycle. Done applies; Cancel dismisses without changing.
+    private var datePickerSheet: some View {
+        NavigationStack {
+            DatePicker(
+                "Date",
+                selection: $date,
+                in: cycleDateRange,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .padding()
+            .navigationTitle("Pick a date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showDatePicker = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showDatePicker = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    /// Backfill window: cycle start through today. Anything outside is
+    /// disabled by the DatePicker itself, so we can't pick a date the
+    /// program doesn't know how to render.
+    private var cycleDateRange: ClosedRange<Date> {
+        let start = Program.cycle2.startDate ?? Date()
+        let today = Calendar.current.startOfDay(for: Date())
+        // Guard against a degenerate range if startDate is somehow in the
+        // future — collapse to a single-day range on today.
+        return min(start, today)...today
+    }
+
+    private func relativeDayString(for target: Date) -> String {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let day = cal.startOfDay(for: target)
+        let diff = cal.dateComponents([.day], from: day, to: today).day ?? 0
+        if diff == 0 { return "Today" }
+        if diff == 1 { return "Yesterday" }
+        if diff > 1  { return "\(diff) days ago" }
+        return "In \(-diff) days"
+    }
+
+    /// Discard editable state and reload for the newly-picked date. Runs
+    /// after every date change (including tapping Today from a past date).
+    private func reloadForCurrentDate() async {
+        setState = [:]
+        workoutId = nil
+        cardioDurationMin = nil
+        cardioAvgHr = nil
+        notes = ""
+        initializeSetStateForProgram()
+        await loadFromDatabase()
     }
 
     @ViewBuilder

@@ -16,10 +16,20 @@ struct CheckInsTab: View {
 
     @Environment(\.appDatabase) private var appDatabase: AppDatabase?
 
+    @State private var weekChoice: WeekChoice = .thisWeek
     @State private var isExporting = false
     @State private var lastExportURL: URL?
     @State private var errorMessage: String?
     @State private var shareItem: ShareItem?
+
+    /// Which Monday-anchored week the tab is targeting for export. Only
+    /// two options for MVP — a full historical picker lands with the
+    /// reflection form.
+    enum WeekChoice: String, CaseIterable, Identifiable {
+        case thisWeek = "This week"
+        case lastWeek = "Last week"
+        var id: String { rawValue }
+    }
 
     var body: some View {
         NavigationStack {
@@ -35,11 +45,41 @@ struct CheckInsTab: View {
     // MARK: - Content
 
     private var content: some View {
-        let week = Week.containing(Date())
+        let week = resolvedWeek(for: weekChoice)
         return List {
+            weekSelectorSection
             weekSummarySection(for: week)
             exportSection(for: week)
             comingSoonSection
+        }
+    }
+
+    private var weekSelectorSection: some View {
+        Section {
+            Picker("Target week", selection: $weekChoice) {
+                ForEach(WeekChoice.allCases) { choice in
+                    Text(choice.rawValue).tag(choice)
+                }
+            }
+            .pickerStyle(.segmented)
+        } footer: {
+            Text("Choose which week to summarize and export.")
+        }
+    }
+
+    /// Resolve a `WeekChoice` to a concrete `Week`. `.thisWeek` is anchored
+    /// on today; `.lastWeek` is anchored 7 days prior. The `now` value is
+    /// preserved on both so `Week.isPartial` still reflects "is that week
+    /// still in progress" — last week is always complete, this week may
+    /// be mid-flight.
+    private func resolvedWeek(for choice: WeekChoice) -> Week {
+        let now = Date()
+        switch choice {
+        case .thisWeek:
+            return Week.containing(now, now: now)
+        case .lastWeek:
+            let priorWeek = Calendar.mondayFirst.date(byAdding: .day, value: -7, to: now) ?? now
+            return Week.containing(priorWeek, now: now)
         }
     }
 
@@ -120,7 +160,7 @@ struct CheckInsTab: View {
 
     private var comingSoonSection: some View {
         Section {
-            Text("Weekly reflection form — mood, adherence, energy, coach notes — lands in a later commit.")
+            Text("Weekly reflection form (mood, adherence, energy, coach notes) and a full historical week picker land in a later commit.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         } header: {
