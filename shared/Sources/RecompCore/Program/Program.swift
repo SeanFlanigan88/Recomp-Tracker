@@ -150,10 +150,20 @@ public struct ProgramDay: Sendable, Hashable {
 public struct Program: Sendable, Hashable {
     public let name: String
     public let days: [Weekday: ProgramDay]
+    /// Anchor date for cycle-week numbering (Monday of week 1). Optional so
+    /// tests and freeform programs can omit it; `weekNumber(for:)` returns
+    /// nil when it's not set. Resolves the "cycle-start-date is currently
+    /// implicit" backlog item.
+    public let startDate: Date?
 
-    public init(name: String, days: [Weekday: ProgramDay]) {
+    public init(
+        name: String,
+        days: [Weekday: ProgramDay],
+        startDate: Date? = nil
+    ) {
         self.name = name
         self.days = days
+        self.startDate = startDate
     }
 
     /// Day for a given date, falling back to a synthesized rest day if the
@@ -167,6 +177,20 @@ public struct Program: Sendable, Hashable {
             sessionType: nil,
             kind: .rest(note: "No program day defined.")
         )
+    }
+
+    /// 1-indexed week number relative to `startDate`. Returns nil when
+    /// `startDate` is unset, when the target predates the cycle, or when
+    /// the diff can't be computed. Weeks beyond the intended cycle length
+    /// keep counting up — the export payload is informational, not
+    /// enforcing a cycle boundary.
+    public func weekNumber(for date: Date, calendar: Calendar = .mondayFirst) -> Int? {
+        guard let start = startDate else { return nil }
+        let startDay = calendar.startOfDay(for: start)
+        let targetDay = calendar.startOfDay(for: date)
+        guard targetDay >= startDay else { return nil }
+        let days = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
+        return (days / 7) + 1
     }
 }
 
@@ -281,6 +305,16 @@ public extension Program {
                     ]
                 )
             ),
-        ]
+        ],
+        startDate: {
+            var comps = DateComponents()
+            comps.year = 2026
+            comps.month = 8
+            comps.day = 3
+            comps.hour = 0
+            comps.minute = 0
+            comps.second = 0
+            return Calendar.mondayFirst.date(from: comps) ?? Date()
+        }()
     )
 }
