@@ -1,155 +1,128 @@
 # Data Schema
 
-Full data model for Recomp Tracker. This is the load-bearing document — the schema is what carries forward regardless of framework or UI decisions.
+Full data model for Recomp Tracker. Three tables, eleven columns.
+
+The app does one thing: show the prescribed session, let me log what weight and
+reps I actually did, and show me what I did last time so I can decide whether to
+go up. Everything in here serves that sentence. See `docs/overhaul-plan.md` for
+the design this replaced and why.
 
 ## Design principles
 
-1. **Source tracking on any auto-imported data.** Every row that could come from HealthKit has a `source` field and a `healthkit_uuid` for dedup and reconciliation.
-2. **Denormalize snapshots at the point of capture.** Progress photos store the weight and body fat % at the time the photo was taken, so historical comparisons don't drift if HealthKit later revises the underlying reading.
-3. **Sparse rows are fine.** SQLite handles nullable columns efficiently. A morning HRV reading fills one field; a scale reading fills eight. Both live in the same `body_metrics` table.
-4. **Optional fields for progressive adoption.** RIR, mood, sleep quality, etc. are optional. Log them when useful, skip when not. The schema supports both without branching.
+1. **Identity is position, not date.** A session is `(phase, ordinal)`. Sessions
+   are ordered by where they fall in the cycle, and doing the "Monday" workout on
+   a Thursday is a non-event. The program's weekday names are source ordering
+   only and never reach the database.
+2. **One date, recorded at completion.** `completed_at` is the only date in the
+   schema. It is NULL until the session is marked complete. Its one job is
+   ordering the "last time" lookup.
+3. **One row per exercise per session.** No `set_number`. One weight and one rep
+   count cover every round — the weight does not change mid-session, only between
+   weeks.
+4. **Canonical exercise names.** Coaching cues are split off at ingestion and
+   live on the program, not in `exercises.name`. This is what makes history span
+   phases.
+5. **Constraints in the schema, not just in Swift.** Uniqueness, foreign keys and
+   CHECKs are declared here so that an illegal row cannot be written by any
+   route.
 
 ## Tables
 
-### `body_metrics`
-
-All quantitative body composition, cardiovascular, and sleep data. One row per measurement event.
-
-    id                   INTEGER PRIMARY KEY
-    timestamp            DATETIME NOT NULL
-    source               TEXT NOT NULL     -- 'healthkit' | 'manual'
-    healthkit_uuid       TEXT              -- for dedup/reconciliation
-    weight_lb            REAL
-    body_fat_pct         REAL
-    lean_mass_lb         REAL
-    bone_mass_lb         REAL
-    body_water_pct       REAL
-    visceral_fat_rating  REAL
-    bmr_kcal             INTEGER
-    resting_hr           INTEGER
-    hrv_ms               REAL
-    sleep_hours          REAL
-    sleep_efficiency     REAL              -- 0.0 to 1.0
-
-### `daily_log`
-
-Subjective daily state. One row per day. Never sourced from HealthKit.
-
-    id                     INTEGER PRIMARY KEY
-    date                   DATE NOT NULL UNIQUE
-    energy_1_10            INTEGER           -- 1-10 scale
-    mood                   TEXT              -- freeform tag
-    sleep_quality_1_10     INTEGER           -- subjective, separate from HK sleep_hours
-    stress_1_10            INTEGER
-    notes                  TEXT
-    training_readiness     REAL              -- computed field, updated on write
-
 ### `workouts`
 
-One row per training session.
+One session of the cycle.
 
-    id                     INTEGER PRIMARY KEY
-    date                   DATE NOT NULL
-    started_at             DATETIME
-    ended_at               DATETIME
-    session_type           TEXT              -- 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'full' | 'cardio' | 'other'
-    duration_min           INTEGER
-    healthkit_workout_uuid TEXT              -- link to HK workout if imported
-    active_kcal            INTEGER           -- from HK if available
-    avg_hr                 INTEGER           -- from HK if available
-    notes                  TEXT
+    id            INTEGER PRIMARY KEY
+    phase         INTEGER NOT NULL      -- 1, 2, 3
+    ordinal       INTEGER NOT NULL      -- 1-based, unbounded
+    completed_at  DATETIME              -- NULL = pending
 
-### `exercise_sets`
+    UNIQUE(phase, ordinal)
+    CHECK(phase BETWEEN 1 AND 3)
+    CHECK(ordinal >= 1)
+    INDEX on completed_at
 
-One row per set. This is the highest-volume table over time.
+`ordinal` has **no upper bound**. Each phase is nominally 30 sessions, but that
+number is the denominator in a counter, not a limit. A phase reading `37/30` is a
+valid, expected state — it means the block has run past its nominal length.
 
-    id             INTEGER PRIMARY KEY
-    workout_id     INTEGER NOT NULL REFERENCES workouts(id)
-    exercise_id    INTEGER NOT NULL REFERENCES exercises(id)
-    set_number     INTEGER NOT NULL
-    weight_lb      REAL
-    reps           INTEGER
-    rir            INTEGER           -- reps in reserve (0-5+), optional
-    is_top_set     BOOLEAN DEFAULT 0 -- flag the working/heaviest set for a lift
-    is_warmup      BOOLEAN DEFAULT 0
-    notes          TEXT
+The session's content is derived, never stored:
+
+    slot = ((ordinal - 1) mod 7) + 1
+
+Slot 1 is the first session in the phase's rotation, slot 7 the last. Over 30
+ordinals that gives four full rotations plus slots 1 and 2 — 22 lifting sessions
+and 8 recovery sessions.
+
+`session_type`, `duration_min`, `avg_hr`, `notes`, `started_at`/`ended_at` and the
+HealthKit columns are all gone. Session type is derivable from `ordinal`; the rest
+belonged to features that no longer exist.
 
 ### `exercises`
 
-Reference table of exercises. Seeded on first launch, extensible by user.
+A movement, identified by its canonical name.
 
-    id                    INTEGER PRIMARY KEY
-    name                  TEXT NOT NULL UNIQUE
-    category              TEXT              -- 'anchor' | 'accessory' | 'cardio'
-    primary_muscle_group  TEXT              -- 'chest' | 'back' | 'quads' | etc.
-    movement_pattern      TEXT              -- 'push_horizontal' | 'squat' | 'hinge' | etc.
-    is_bilateral          BOOLEAN DEFAULT 1
-    is_custom             BOOLEAN DEFAULT 0 -- user-added vs seeded
+    id    INTEGER PRIMARY KEY
+    name  TEXT NOT NULL UNIQUE
 
-### `nutrition_log`
+    CHECK(length(trim(name)) > 0)
 
-Daily nutrition totals. Food-level logging is out of scope for v1.
+**The name must be free of coaching cues.** The program JSON writes
+`KB goblet squat`, `KB goblet squat (heavier KB)` and
+`KB goblet squat (max KB, pause at bottom)` for one movement across three phases.
+69 distinct name strings in the cycle collapse to 54 actual exercises, and 26 of
+those appear in two or more phases.
 
-    id             INTEGER PRIMARY KEY
-    date           DATE NOT NULL UNIQUE
-    kcal           INTEGER
-    protein_g      INTEGER
-    carbs_g        INTEGER
-    fat_g          INTEGER
-    target_kcal    INTEGER
-    target_protein_g INTEGER
-    notes          TEXT
+Since `name` is UNIQUE and is the join key behind the "last time" lookup,
+ingesting the strings verbatim would give the Phase 3 goblet squat no history
+against the Phase 1 one — silently hiding exactly the numbers the app exists to
+show. The parenthetical splits off at ingestion onto the program's `cue`.
 
-### `progress_photos`
+`category`, `primary_muscle_group`, `movement_pattern`, `is_bilateral` and
+`is_custom` were never populated meaningfully and are gone.
 
-Photos with pose modifiers for accurate comparison. See ADR-003 for CKAsset handling.
+### `exercise_logs`
 
-    id                     INTEGER PRIMARY KEY
-    date                   DATE NOT NULL
-    timestamp              DATETIME NOT NULL
-    angle                  TEXT NOT NULL     -- 'front' | 'side_left' | 'side_right' | 'back'
-    pose                   TEXT NOT NULL     -- 'relaxed' | 'flexed'
-    photo_path             TEXT NOT NULL     -- local file path; CKAsset in CloudKit
-    weight_lb_at_capture   REAL              -- denormalized snapshot
-    bf_pct_at_capture      REAL              -- denormalized snapshot
-    cadence_tag            TEXT              -- 'weekly' | 'biweekly' | 'monthly'
-    notes                  TEXT
+What was actually lifted.
 
-### `check_ins`
+    id           INTEGER PRIMARY KEY
+    workout_id   INTEGER NOT NULL  -> workouts(id)   ON DELETE CASCADE
+    exercise_id  INTEGER NOT NULL  -> exercises(id)  ON DELETE RESTRICT
+    weight_lb    REAL
+    reps         INTEGER
 
-Periodic review snapshots. Weekly/biweekly/monthly.
+    UNIQUE(workout_id, exercise_id)
+    CHECK(weight_lb IS NULL OR weight_lb >= 0)
+    CHECK(reps IS NULL OR reps >= 0)
+    INDEX on workout_id, exercise_id
 
-    id                     INTEGER PRIMARY KEY
-    date                   DATE NOT NULL
-    period_type            TEXT NOT NULL     -- 'weekly' | 'biweekly' | 'monthly'
-    period_start           DATE NOT NULL
-    period_end             DATE NOT NULL
-    avg_weight_lb          REAL
-    avg_body_fat_pct       REAL
-    avg_sleep_hours        REAL
-    workouts_completed     INTEGER
-    total_volume_lb        REAL              -- sum of weight × reps across all working sets
-    reflection_notes       TEXT
-    coach_notes            TEXT              -- for conversation with Claude / trainer
+`weight_lb` is NULL for bodyweight and unloaded work (hollow hold, bear crawl,
+push-ups). Zero is permitted and distinct from NULL.
 
-## Indices
+**`reps` carries whatever unit the prescription implies** — reps, reps per side,
+seconds, or yards — with no discriminator column:
 
-    CREATE INDEX idx_body_metrics_timestamp ON body_metrics(timestamp);
-    CREATE INDEX idx_body_metrics_hk_uuid ON body_metrics(healthkit_uuid);
-    CREATE INDEX idx_workouts_date ON workouts(date);
-    CREATE INDEX idx_workouts_hk_uuid ON workouts(healthkit_workout_uuid);
-    CREATE INDEX idx_sets_workout_id ON exercise_sets(workout_id);
-    CREATE INDEX idx_sets_exercise_id ON exercise_sets(exercise_id);
-    CREATE INDEX idx_photos_date ON progress_photos(date);
+| Prescription | Example | In the cycle | `reps` holds |
+|---|---|---:|---|
+| plain | `12` | 38 | reps |
+| range | `12-15` | 18 | reps achieved |
+| per-side | `10/side`, `12/leg` | 30 | reps per side |
+| timed | `30-45 sec` | 5 | seconds |
+| distance | `20 yards` | 2 | yards |
+| AMRAP | `AMRAP` | 1 | reps achieved |
 
-## Migration strategy
+This is safe **only because nothing computes on the number**. e1RM, top-set
+detection and PR tracking were removed; a 45-second hollow hold and a 20-yard bear
+crawl never enter arithmetic that would make the mixed units wrong. If any math
+over `reps` is reintroduced, this decision has to be reopened first.
 
-GRDB migrations are versioned and forward-only. Every schema change is a new migration file numbered sequentially. See `shared/Sources/RecompCore/Migrations/`.
+The cascade/restrict split is deliberate: deleting a session should take its logs
+with it, while deleting an exercise that has history should fail loudly rather
+than erase it.
 
-## What's deliberately out of scope for v1
+## Migrations
 
-- Per-meal food logging (daily totals only)
-- Cardio zone tracking (aggregate calories/duration only)
-- Mesocycle/phase metadata (add when we start Cycle 3)
-- Exercise-level 1RM tracking (compute from top sets on demand)
-- Multi-user support
+Forward-only. `M001` was rewritten in place once, during the Cycle 3 overhaul —
+no data was being preserved and `AppMigrator` sets `eraseDatabaseOnSchemaChange`
+under DEBUG, so local databases rebuild on next launch. Normal rules resume from
+there: never edit a shipped migration; add `M002`.
