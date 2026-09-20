@@ -165,3 +165,14 @@ Open questions to resolve:
 Resolves when: (a) there's 6+ months of real photo data to reason from, and
 (b) the fitness-agent workflow is concrete enough to know how often old
 images are actually referenced. Not urgent — reopen ~Q2 2027.
+
+## Session screen polish
+
+Cosmetic only — deferred from commit 5.
+
+- Prev/next buttons: stray List row separator draws across the transparent
+  row above them; buttons are `Spacer()`-separated so they sit at different
+  widths and don't align; `Label` forces the chevron to lead, so Next reads
+  "> Next" instead of "Next >". Wants `.listRowSeparator(.hidden)`, equal
+  widths, and an explicit HStack for Next.
+- Whole-screen visual pass not yet done. Commit 5 prioritized the data path.
