@@ -1,59 +1,19 @@
 import SwiftUI
 import RecompCore
 
+/// Placeholder shell. The real Home screen (three phase blocks) lands with the
+/// UI commit; this exists so the app target builds and launches after the strip.
 struct ContentView: View {
 
-    /// Tab selection is state so the Log tab's "Session" row can programmatically
-    /// jump to Workouts. Keep this minimal — no routing framework, just a tab
-    /// enum and a couple of tags.
-    @State private var selectedTab: Tab = .log
-
-    enum Tab: Hashable {
-        case log, workouts, metrics, photos, checkIns
-    }
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            LogTab(onOpenWorkouts: { selectedTab = .workouts })
-                .tabItem { Label("Log", systemImage: "square.and.pencil") }
-                .tag(Tab.log)
-
-            WorkoutsTab()
-                .tabItem { Label("Workouts", systemImage: "dumbbell") }
-                .tag(Tab.workouts)
-
-            MetricsTab()
-                .tabItem { Label("Metrics", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(Tab.metrics)
-
-            PhotosTab()
-                .tabItem { Label("Photos", systemImage: "photo.on.rectangle") }
-                .tag(Tab.photos)
-
-            CheckInsTab()
-                .tabItem { Label("Check-ins", systemImage: "checkmark.circle") }
-                .tag(Tab.checkIns)
-        }
-        // Force dark by default per Sean's preference. Not tied to the
-        // system appearance — if the phone is on light mode, this app is
-        // still dark. Revisit if we ever add a user-facing appearance
-        // toggle in settings.
-        .preferredColorScheme(.dark)
-    }
-}
-
-// MARK: - Placeholder tabs
-//
-// LogTab, WorkoutsTab, PhotosTab, and CheckInsTab are now real views in
-// their own files. MetricsTab stays as a placeholder until its commit.
-
-private struct MetricsTab: View {
     var body: some View {
         NavigationStack {
-            Text("Body composition, sleep, HRV live here.")
-                .navigationTitle("Metrics")
+            Text("Recomp Tracker")
+                .foregroundStyle(.secondary)
+                .navigationTitle("Home")
         }
-        .keyboardDoneToolbar()
+        // Force dark by default per Sean's preference. Not tied to the system
+        // appearance — if the phone is on light mode, this app is still dark.
+        .preferredColorScheme(.dark)
     }
 }
 

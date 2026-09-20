@@ -9,7 +9,7 @@ import GRDB
 ///   2. Registering it below, in order.
 ///
 /// Migrations are forward-only. Never edit a migration after it has shipped —
-/// write a new one that superseeds it.
+/// write a new one that supersedes it.
 public enum AppMigrator {
 
     public static var migrator: DatabaseMigrator {
@@ -24,8 +24,6 @@ public enum AppMigrator {
         #endif
 
         M001_InitialSchema.register(in: &migrator)
-        M002_AddWaterOz.register(in: &migrator)
-        M003_UniqueHealthKitUuid.register(in: &migrator)
 
         return migrator
     }
