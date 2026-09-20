@@ -1,6 +1,6 @@
 # Overhaul Plan — Cycle 3 Rebuild
 
-**Status:** design settled, not yet implemented
+**Status:** implemented — all five commits landed 2026-09-20
 **Written:** 2026-09-16
 
 ---
@@ -385,4 +385,16 @@ Explicitly dead:
 
 ## Open
 
-Nothing on the weights side. Design is settled.
+The five commits above are done. The app builds, runs, and does the sentence at
+the top of this document.
+
+Still outstanding, in the order they are likely to matter:
+
+1. **Cardio** — see [Deferred](#deferred) above. Sean brings real session
+   examples; design conversation before code.
+2. **Weight or reps dropping across rounds** — see [Deferred](#deferred).
+   Sean's call, not designed.
+3. **Session screen polish** — see `docs/backlog.md`. Cosmetic only: prev/next
+   button alignment, a stray list separator, chevron order.
+
+Nothing here blocks using the app.
